@@ -71,7 +71,7 @@ function initCamera() {
 
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("#E27266");
+  scene.background = new THREE.Color("#ea7c70");
 
   // const environment = new RoomEnvironment();
   // const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -106,19 +106,19 @@ function initScene() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const test = new THREE.Mesh(
-    new THREE.SphereGeometry(1),
-    new THREE.MeshPhongMaterial({
-      color: "#A83A21",
-      roughness: 0.75,
-      shininess: 0,
-      reflectivity: 0,
-    })
-  );
-  test.position.y = 3;
-  test.castShadow = true;
-  test.receiveShadow = true;
-  scene.add(test);
+  // const test = new THREE.Mesh(
+  //   new THREE.SphereGeometry(1),
+  //   new THREE.MeshPhongMaterial({
+  //     color: "#A83A21",
+  //     roughness: 0.75,
+  //     shininess: 0,
+  //     reflectivity: 0,
+  //   })
+  // );
+  // test.position.y = 3;
+  // test.castShadow = true;
+  // test.receiveShadow = true;
+  // scene.add(test);
 
   scene.add(object);
 }
