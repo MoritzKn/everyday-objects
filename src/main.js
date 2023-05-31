@@ -2,13 +2,15 @@ import * as THREE from "three";
 
 // import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { TransformControls } from "three/addons/controls/TransformControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-let camera, scene, renderer, controls, object;
-let mousePos = new THREE.Vector2(0, 0);
+let camera, scene, renderer, controls;
+
+let object = new THREE.Group();
 
 init();
 animate();
@@ -42,8 +44,29 @@ function initCamera() {
   controls.enableDamping = true;
   controls.enableZoom = false;
   controls.enablePan = false;
-  controls.autoRotate = true;
+  // controls.enableRotate = false;
+  // controls.autoRotate = true;
   controls.update();
+
+  const transform = new TransformControls(camera, renderer.domElement);
+  transform.attach(object);
+  transform.setMode("rotate");
+  transform.visible = false;
+
+  transform.addEventListener("dragging-changed", function (event) {
+    transform.axis = "XYZE";
+    controls.enabled = !event.value;
+
+    // transform.visible = event.value;
+
+    // if (event.value) {
+    // controls.enabled = true;
+    //   clearTimeout(tid);
+    // } else {
+    //   tid = setTimeout(() => (transform.visible = false), 250);
+    // }
+  });
+  scene.add(transform);
 }
 
 function initScene() {
@@ -58,7 +81,7 @@ function initScene() {
   scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-  dirLight.position.set(5, 10, 7.5);
+  dirLight.position.set(5, 15, 6);
   dirLight.castShadow = true;
   dirLight.shadow.mapSize.width = 512 * 2;
   dirLight.shadow.mapSize.height = 512 * 2;
@@ -79,7 +102,7 @@ function initScene() {
   );
 
   ground.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
-  ground.position.y = -4;
+  ground.position.y = -3.9;
   ground.receiveShadow = true;
   scene.add(ground);
 
@@ -96,6 +119,8 @@ function initScene() {
   test.castShadow = true;
   test.receiveShadow = true;
   scene.add(test);
+
+  scene.add(object);
 }
 
 function initModel() {
@@ -109,8 +134,6 @@ function initModel() {
 
   const url = new URL("./models/Lighter.glb", import.meta.url).href;
   loader.load(url, function (gltf) {
-    object = new THREE.Group();
-
     gltf.scene.traverse((mesh) => {
       if (mesh.material) {
         // mesh.material = new THREE.MeshPhongMaterial({
@@ -124,7 +147,6 @@ function initModel() {
     });
     object.add(gltf.scene);
 
-    scene.add(object);
     window.object = object;
   });
 }
@@ -136,7 +158,6 @@ function init() {
   initCamera();
 
   window.addEventListener("resize", onWindowResize);
-  window.addEventListener("mousemove", onMouseMove);
 }
 
 function onWindowResize() {
@@ -146,17 +167,9 @@ function onWindowResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function onMouseMove(event) {
-  mousePos = new THREE.Vector2(event.clientX, event.clientY);
-}
-
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-
-  object.rotation.x =
-    -Math.PI + Math.PI * 2 * (mousePos.y / window.innerHeight);
-  object.rotation.y = Math.PI * 2 * (mousePos.x / window.innerWidth);
 
   render();
 }
