@@ -42,12 +42,13 @@ function initCamera() {
   controls.enableDamping = true;
   controls.enableZoom = false;
   controls.enablePan = false;
+  controls.autoRotate = true;
   controls.update();
 }
 
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("#C79492");
+  scene.background = new THREE.Color("#E27266");
 
   // const environment = new RoomEnvironment();
   // const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -59,20 +60,21 @@ function initScene() {
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
   dirLight.position.set(5, 10, 7.5);
   dirLight.castShadow = true;
-  dirLight.shadow.camera.right = 6;
-  dirLight.shadow.camera.left = -6;
-  dirLight.shadow.camera.top = 6;
-  dirLight.shadow.camera.bottom = -6;
+  dirLight.shadow.mapSize.width = 512 * 2;
+  dirLight.shadow.mapSize.height = 512 * 2;
+  dirLight.shadow.bias = -0.00006;
+  dirLight.shadow.normalBias = 0.01;
 
-  dirLight.shadow.mapSize.width = 1024 * 1;
-  dirLight.shadow.mapSize.height = 1024 * 1;
   scene.add(dirLight);
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100, 1, 1),
-    new THREE.ShadowMaterial({
-      color: 0x000000,
-      opacity: 0.25,
+    new THREE.MeshPhongMaterial({
+      color: "#C95A54",
+      // specular: "#C95A54",
+      side: THREE.DoubleSide,
+      shininess: 0,
+      reflectivity: 0,
     })
   );
 
@@ -81,34 +83,19 @@ function initScene() {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const ground2 = new THREE.Mesh(
-    new THREE.PlaneGeometry(100, 100, 1, 1),
-    new THREE.MeshStandardMaterial({
-      color: "#C95A54",
-      roughness: 1,
-      shadowSide: THREE.DoubleSide,
-      side: THREE.DoubleSide,
+  const test = new THREE.Mesh(
+    new THREE.SphereGeometry(1),
+    new THREE.MeshPhongMaterial({
+      color: "#A83A21",
+      roughness: 0.75,
+      shininess: 0,
+      reflectivity: 0,
     })
   );
-
-  ground2.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
-  ground2.position.y = -4;
-  ground2.receiveShadow = true;
-  scene.add(ground2);
-
-  // const test = new THREE.Mesh(
-  //   new THREE.BoxGeometry(2, 2, 2),
-  //   new THREE.MeshStandardMaterial({
-  //     color: "#BC413A",
-  //     metalness: 0.1,
-  //     roughness: 0.75,
-  //     clipShadows: true,
-  //     shadowSide: THREE.DoubleSide,
-  //   })
-  // );
-  // test.position.y = 3;
-  // test.castShadow = true;
-  // scene.add(test);
+  test.position.y = 3;
+  test.castShadow = true;
+  test.receiveShadow = true;
+  scene.add(test);
 }
 
 function initModel() {
@@ -124,19 +111,16 @@ function initModel() {
   loader.load(url, function (gltf) {
     object = new THREE.Group();
 
-    // const material = new THREE.MeshStandardMaterial({
-    //   color: "#C9B403",
-    //   metalness: 0.1,
-    //   roughness: 0.75,
-    //   clipShadows: true,
-    //   shadowSide: THREE.DoubleSide,
-    // });
-
     gltf.scene.traverse((mesh) => {
       if (mesh.material) {
+        // mesh.material = new THREE.MeshPhongMaterial({
+        //   color: mesh.material.color,
+        // });
         mesh.material.roughness = 0.75;
+        // mesh.material.shadowSide = THREE.BackSide;
       }
       mesh.castShadow = true;
+      mesh.receiveShadow = true;
     });
     object.add(gltf.scene);
 
