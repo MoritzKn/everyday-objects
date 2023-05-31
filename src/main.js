@@ -1,88 +1,158 @@
 import * as THREE from "three";
 
-import Stats from "three/addons/libs/stats.module.js";
-import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+// import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-let camera;
-let scene;
-let renderer;
-let controls;
-let stats;
-let mesh;
+import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-const amount = 5;
-const count = Math.pow(amount, 3);
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2(1, 1);
-
-const color = new THREE.Color();
-const white = new THREE.Color().setHex(0xffffff);
+let camera, scene, renderer, controls, object;
+let mousePos = new THREE.Vector2(0, 0);
 
 init();
 animate();
 
-function init() {
-  camera = new THREE.PerspectiveCamera(
-    60,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    100
-  );
-  camera.position.set(amount, amount, amount);
-  camera.lookAt(0, 0, 0);
-
-  scene = new THREE.Scene();
-
-  const light = new THREE.HemisphereLight(0xffffff, 0x888888);
-  light.position.set(0, 1, 0);
-  scene.add(light);
-
-  const geometry = new THREE.IcosahedronGeometry(0.5, 3);
-  const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
-
-  mesh = new THREE.InstancedMesh(geometry, material, count);
-
-  let i = 0;
-  const offset = (amount - 1) / 2;
-
-  const matrix = new THREE.Matrix4();
-
-  for (let x = 0; x < amount; x++) {
-    for (let y = 0; y < amount; y++) {
-      for (let z = 0; z < amount; z++) {
-        matrix.setPosition(offset - x, offset - y, offset - z);
-
-        mesh.setMatrixAt(i, matrix);
-        mesh.setColorAt(i, color);
-
-        i++;
-      }
-    }
-  }
-
-  scene.add(mesh);
-
-  //
-
-  const gui = new GUI();
-  gui.add(mesh, "count", 0, count);
+function initRenderer() {
+  const container = document.createElement("div");
+  document.body.appendChild(container);
 
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1;
+  renderer.shadowMap.enabled = true;
+  container.appendChild(renderer.domElement);
+}
+
+function initCamera() {
+  camera = new THREE.PerspectiveCamera(
+    42,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    100
+  );
+  camera.position.set(6, 4, 8);
+  const distance = 18;
 
   controls = new OrbitControls(camera, renderer.domElement);
+  controls.minDistance = distance;
+  controls.maxDistance = distance;
   controls.enableDamping = true;
   controls.enableZoom = false;
   controls.enablePan = false;
+  controls.update();
+}
 
-  stats = new Stats();
-  document.body.appendChild(stats.dom);
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color("#C79492");
+
+  // const environment = new RoomEnvironment();
+  // const pmremGenerator = new THREE.PMREMGenerator(renderer);
+  // scene.environment = pmremGenerator.fromScene(environment).texture;
+  // environment.dispose();
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+  dirLight.position.set(5, 10, 7.5);
+  dirLight.castShadow = true;
+  dirLight.shadow.camera.right = 6;
+  dirLight.shadow.camera.left = -6;
+  dirLight.shadow.camera.top = 6;
+  dirLight.shadow.camera.bottom = -6;
+
+  dirLight.shadow.mapSize.width = 1024 * 1;
+  dirLight.shadow.mapSize.height = 1024 * 1;
+  scene.add(dirLight);
+
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(100, 100, 1, 1),
+    new THREE.ShadowMaterial({
+      color: 0x000000,
+      opacity: 0.25,
+    })
+  );
+
+  ground.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
+  ground.position.y = -4;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  const ground2 = new THREE.Mesh(
+    new THREE.PlaneGeometry(100, 100, 1, 1),
+    new THREE.MeshStandardMaterial({
+      color: "#C95A54",
+      roughness: 1,
+      shadowSide: THREE.DoubleSide,
+      side: THREE.DoubleSide,
+    })
+  );
+
+  ground2.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
+  ground2.position.y = -4;
+  ground2.receiveShadow = true;
+  scene.add(ground2);
+
+  // const test = new THREE.Mesh(
+  //   new THREE.BoxGeometry(2, 2, 2),
+  //   new THREE.MeshStandardMaterial({
+  //     color: "#BC413A",
+  //     metalness: 0.1,
+  //     roughness: 0.75,
+  //     clipShadows: true,
+  //     shadowSide: THREE.DoubleSide,
+  //   })
+  // );
+  // test.position.y = 3;
+  // test.castShadow = true;
+  // scene.add(test);
+}
+
+function initModel() {
+  const ktx2Loader = new KTX2Loader()
+    .setTranscoderPath("https://threejs.org/examples/jsm/libs/basis/")
+    .detectSupport(renderer);
+
+  const loader = new GLTFLoader();
+  loader.setKTX2Loader(ktx2Loader);
+  loader.setMeshoptDecoder(MeshoptDecoder);
+
+  const url = new URL("./models/Lighter.glb", import.meta.url).href;
+  loader.load(url, function (gltf) {
+    object = new THREE.Group();
+
+    // const material = new THREE.MeshStandardMaterial({
+    //   color: "#C9B403",
+    //   metalness: 0.1,
+    //   roughness: 0.75,
+    //   clipShadows: true,
+    //   shadowSide: THREE.DoubleSide,
+    // });
+
+    gltf.scene.traverse((mesh) => {
+      if (mesh.material) {
+        mesh.material.roughness = 0.75;
+      }
+      mesh.castShadow = true;
+    });
+    object.add(gltf.scene);
+
+    scene.add(object);
+    window.object = object;
+  });
+}
+
+function init() {
+  initRenderer();
+  initScene();
+  initModel();
+  initCamera();
 
   window.addEventListener("resize", onWindowResize);
-  document.addEventListener("mousemove", onMouseMove);
+  window.addEventListener("mousemove", onMouseMove);
 }
 
 function onWindowResize() {
@@ -93,36 +163,18 @@ function onWindowResize() {
 }
 
 function onMouseMove(event) {
-  event.preventDefault();
-
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  mousePos = new THREE.Vector2(event.clientX, event.clientY);
 }
 
 function animate() {
   requestAnimationFrame(animate);
-
   controls.update();
 
-  raycaster.setFromCamera(mouse, camera);
-
-  const intersection = raycaster.intersectObject(mesh);
-
-  if (intersection.length > 0) {
-    const instanceId = intersection[0].instanceId;
-
-    mesh.getColorAt(instanceId, color);
-
-    if (color.equals(white)) {
-      mesh.setColorAt(instanceId, color.setHex(Math.random() * 0xffffff));
-
-      mesh.instanceColor.needsUpdate = true;
-    }
-  }
+  object.rotation.x =
+    -Math.PI + Math.PI * 2 * (mousePos.y / window.innerHeight);
+  object.rotation.y = Math.PI * 2 * (mousePos.x / window.innerWidth);
 
   render();
-
-  stats.update();
 }
 
 function render() {
