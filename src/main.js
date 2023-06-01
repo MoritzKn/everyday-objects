@@ -45,7 +45,7 @@ function initCamera() {
   controls.enableZoom = false;
   controls.enablePan = false;
   controls.minPolarAngle = 0;
-  controls.maxPolarAngle = Math.PI * 0.565;
+  controls.maxPolarAngle = Math.PI * 0.582;
   // controls.enableRotate = false;
   controls.autoRotate = true;
   controls.update();
@@ -82,7 +82,7 @@ function initScene() {
   // scene.environment = pmremGenerator.fromScene(environment).texture;
   // environment.dispose();
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+  scene.add(new THREE.AmbientLight(0xffffff, 0.1));
 
   const dirLight = new THREE.DirectionalLight(0xffffff, 1);
   dirLight.position.set(5, 15, 6);
@@ -91,8 +91,28 @@ function initScene() {
   dirLight.shadow.mapSize.height = 512 * 2;
   dirLight.shadow.bias = -0.00006;
   dirLight.shadow.normalBias = 0.01;
-
   scene.add(dirLight);
+
+  const dirLigh2 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLigh2.position.set(6, 4, -5);
+  dirLigh2.castShadow = true;
+  dirLigh2.shadow.bias = -0.00006;
+  dirLigh2.shadow.normalBias = 0.01;
+  scene.add(dirLigh2);
+
+  const dirLigh3 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLigh3.position.set(-5, 4, -6);
+  dirLigh3.castShadow = true;
+  dirLigh3.shadow.bias = -0.00006;
+  dirLigh3.shadow.normalBias = 0.01;
+  scene.add(dirLigh3);
+
+  const dirLigh4 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLigh4.position.set(-5, 4, 5);
+  dirLigh4.castShadow = true;
+  dirLigh4.shadow.bias = -0.00006;
+  dirLigh4.shadow.normalBias = 0.01;
+  scene.add(dirLigh4);
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100, 1, 1),
@@ -106,7 +126,7 @@ function initScene() {
   );
 
   ground.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
-  ground.position.y = -3.9;
+  ground.position.y = -4.8;
   ground.receiveShadow = true;
   scene.add(ground);
 
