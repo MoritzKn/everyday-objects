@@ -75,7 +75,7 @@ function initCamera() {
 
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("#ea7c70");
+  scene.background = new THREE.Color("#db6a60");
 
   // const environment = new RoomEnvironment();
   // const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -113,6 +113,11 @@ function initScene() {
   dirLigh4.shadow.bias = -0.00006;
   dirLigh4.shadow.normalBias = 0.01;
   scene.add(dirLigh4);
+
+  // Make the ground lighter in the center
+  const light = new THREE.PointLight("#dddddd", 1, 30);
+  light.position.set(0, 10, 0);
+  scene.add(light);
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100, 1, 1),
