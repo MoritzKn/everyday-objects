@@ -41,9 +41,11 @@ function initCamera() {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.minDistance = distance;
   controls.maxDistance = distance;
-  controls.enableDamping = true;
+  controls.enableDamping = false;
   controls.enableZoom = false;
   controls.enablePan = false;
+  controls.minPolarAngle = 0;
+  controls.maxPolarAngle = Math.PI * 0.565;
   // controls.enableRotate = false;
   // controls.autoRotate = true;
   controls.update();
@@ -54,7 +56,9 @@ function initCamera() {
   transform.visible = false;
 
   transform.addEventListener("dragging-changed", function (event) {
-    transform.axis = "XYZE";
+    if (transform.axis !== "XYZE" || transform.axis !== "E") {
+      transform.axis = "XYZE";
+    }
     controls.enabled = !event.value;
 
     // transform.visible = event.value;
