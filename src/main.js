@@ -47,7 +47,7 @@ function initCamera() {
   controls.minPolarAngle = 0;
   controls.maxPolarAngle = Math.PI * 0.565;
   // controls.enableRotate = false;
-  // controls.autoRotate = true;
+  controls.autoRotate = true;
   controls.update();
 
   const transform = new TransformControls(camera, renderer.domElement);
