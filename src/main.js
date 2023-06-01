@@ -75,7 +75,7 @@ function initCamera() {
 
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color("#db6a60");
+  scene.background = new THREE.Color("#d46157");
 
   // const environment = new RoomEnvironment();
   // const pmremGenerator = new THREE.PMREMGenerator(renderer);
@@ -94,21 +94,21 @@ function initScene() {
   scene.add(dirLight);
 
   const dirLigh2 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh2.position.set(6, 4, -5);
+  dirLigh2.position.set(6, 0, -5);
   dirLigh2.castShadow = true;
   dirLigh2.shadow.bias = -0.00006;
   dirLigh2.shadow.normalBias = 0.01;
   scene.add(dirLigh2);
 
   const dirLigh3 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh3.position.set(-5, 4, -6);
+  dirLigh3.position.set(-5, 0, -6);
   dirLigh3.castShadow = true;
   dirLigh3.shadow.bias = -0.00006;
   dirLigh3.shadow.normalBias = 0.01;
   scene.add(dirLigh3);
 
   const dirLigh4 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh4.position.set(-5, 4, 5);
+  dirLigh4.position.set(-5, 0, 5);
   dirLigh4.castShadow = true;
   dirLigh4.shadow.bias = -0.00006;
   dirLigh4.shadow.normalBias = 0.01;
@@ -136,7 +136,7 @@ function initScene() {
   scene.add(ground);
 
   // const test = new THREE.Mesh(
-  //   new THREE.SphereGeometry(1),
+  //   new THREE.SphereGeometry(3),
   //   new THREE.MeshPhongMaterial({
   //     color: "#A83A21",
   //     roughness: 0.75,
