@@ -10,21 +10,21 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
 let camera, scene, renderer, controls;
 
-let object = new THREE.Group();
+const object = new THREE.Group();
+object.position.y = -1;
 
 init();
 animate();
 
 function initRenderer() {
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = true;
+  const container = document.querySelector("main");
+  container.innerHTML = "";
   container.appendChild(renderer.domElement);
 }
 
@@ -35,7 +35,7 @@ function initCamera() {
     0.1,
     100
   );
-  camera.position.set(6, 4, 8);
+  camera.position.set(6, 2, 8);
   const distance = 18;
 
   controls = new OrbitControls(camera, renderer.domElement);
@@ -131,7 +131,7 @@ function initScene() {
   );
 
   ground.rotation.x = -Math.PI / 2; // rotates X/Y to X/Z
-  ground.position.y = -4.8;
+  ground.position.y = -5.8;
   ground.receiveShadow = true;
   scene.add(ground);
 
