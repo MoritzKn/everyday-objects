@@ -141,11 +141,6 @@ function initCamera() {
 
     orbit.enabled = !event.value;
 
-    if (event.value) {
-      const stop = playSound(SOUND.moveLight, true);
-      once(window, "mouseup", () => stop());
-    }
-
     // transform.visible = event.value;
 
     // if (event.value) {
@@ -531,16 +526,13 @@ window.addEventListener("mousemove", (event) => {
       SOUND.moveTwice.playing
     )
   ) {
-    if (
-      INPUT.history.length > 60 &&
-      !(SOUND.moveShake.playing || SOUND.moveShake2.playing)
-    ) {
+    if (INPUT.history.length > 60) {
       if (isShaking(INPUT.history.splice(INPUT.history.length - 50))) {
         playSound(randomElement([SOUND.moveShake, SOUND.moveShake2]));
       }
     }
 
-    if (INPUT.history.length > 6 && INPUT.isDown && Math.random() > 0.94) {
+    if (INPUT.history.length > 6 && Math.random() > 0.94) {
       const dist = getDistance(
         INPUT.current,
         INPUT.history[INPUT.history.length - 5]

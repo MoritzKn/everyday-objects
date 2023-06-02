@@ -5,6 +5,10 @@ body {
   font-size: 12px;
 }
 
+* {
+  user-select: none;
+}
+
 header {
   position: absolute;
   top: 0;
