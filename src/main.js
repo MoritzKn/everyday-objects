@@ -459,7 +459,7 @@ function raycast() {
     // calculate objects intersecting the picking ray
     const intersects = raycaster
       .intersectObjects(scene.children)
-      .filter((i) => i.object.receiveShadow);
+      .filter((i) => i.object.receiveShadow && i.object.visible);
     console.log(intersects);
     console.log(
       "intersects",
@@ -497,16 +497,6 @@ window.addEventListener("mousedown", (event) => {
     } else {
       startActionGas();
     }
-  }
-});
-
-window.addEventListener("click", () => {
-  const intersects = raycast();
-  if (
-    intersects.length > 0 &&
-    ["Tank", "Cylinder011_1"].includes(intersects[0].object.name)
-  ) {
-    playSound(randomElement([SOUND.moveTwice, SOUND.moveSimple]));
   }
 });
 
@@ -552,4 +542,51 @@ window.addEventListener("mouseup", (event) => {
   INPUT.history.push(INPUT.current);
   INPUT.isDown = false;
   INPUT.start = null;
+});
+
+window.addEventListener("click", () => {
+  const intersects = raycast();
+  if (
+    intersects.length > 0 &&
+    ["Tank", "Cylinder011_1"].includes(intersects[0].object.name)
+  ) {
+    playSound(
+      randomElement([SOUND.moveTwice, SOUND.moveSimple, SOUND.moveSimple])
+    );
+  }
+});
+
+window.addEventListener("contextmenu", () => {
+  const intersects = raycast();
+  for (let index = 0; index < intersects.length; index++) {
+    const object = intersects[index].object;
+    if (object.visible) {
+      if (["Cylinder011", "Cylinder011_1"].includes(object.name)) {
+        scene.getObjectByName("Cylinder011", true).visible = false;
+        scene.getObjectByName("Cylinder011_1", true).visible = false;
+      }
+      if (["Tank", "TankBridge"].includes(object.name)) {
+        scene.getObjectByName("Tank", true).visible = false;
+        scene.getObjectByName("TankBridge", true).visible = false;
+      }
+      if (["Lever", "LeverHandle"].includes(object.name)) {
+        scene.getObjectByName("Lever", true).visible = false;
+        scene.getObjectByName("LeverHandle", true).visible = false;
+      }
+      object.visible = false;
+
+      playSound(SOUND.moveSimple);
+      break;
+    }
+  }
+});
+
+window.addEventListener("keydown", function (event) {
+  if (event.key === "Escape") {
+    scene.traverse((obj) => {
+      if (obj.receiveShadow) {
+        obj.visible = true;
+      }
+    });
+  }
 });
