@@ -450,9 +450,12 @@ function startActionLightUp() {
       playSound(SOUND.wheelTouch);
       SOUND.lightUp.inAction = false;
     } else {
-      tid = setTimeout(() => {
-        SOUND.lightUp.inAction = false;
-      }, 400);
+      tid = setTimeout(
+        () => {
+          SOUND.lightUp.inAction = false;
+        },
+        isTouch ? 900 : 400
+      );
     }
   });
 }
