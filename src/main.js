@@ -8,10 +8,96 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-let camera, scene, renderer, controls;
+let camera,
+  scene,
+  renderer,
+  orbit,
+  transform,
+  screenDiagonal = 0;
+
+const INPUT = {
+  start: null,
+  last: null,
+  current: null,
+  history: [],
+  speed: 0,
+  isDown: false,
+  distance: 0,
+};
 
 const object = new THREE.Group();
 object.position.y = -1;
+
+const SOUND = {
+  test: {
+    name: "test",
+    start: 800,
+    audio: new Audio(new URL("./sounds/test.m4a", import.meta.url)),
+  },
+  flame: {
+    name: "flame",
+    start: 0,
+    volume: 1,
+    audio: new Audio(new URL("./sounds/flame.m4a", import.meta.url)),
+  },
+  gasStart: {
+    name: "gasStart",
+    start: 840,
+    audio: new Audio(new URL("./sounds/gasStart.m4a", import.meta.url)),
+  },
+  gasStop: {
+    name: "gasStop",
+    start: 400,
+    volume: 1,
+    audio: new Audio(new URL("./sounds/gasStop.m4a", import.meta.url)),
+  },
+  gasRunning: {
+    name: "gasRunning",
+    start: 0.9,
+    audio: new Audio(new URL("./sounds/gasRunning.m4a", import.meta.url)),
+  },
+  lightUp: {
+    name: "lightUp",
+    start: 200,
+    volume: 0.4,
+    audio: new Audio(new URL("./sounds/lightUp.m4a", import.meta.url)),
+  },
+  moveLight: {
+    name: "moveLight",
+    start: 400,
+    audio: new Audio(new URL("./sounds/moveLight.m4a", import.meta.url)),
+  },
+  moveShake: {
+    name: "moveShake",
+    start: 1040,
+    audio: new Audio(new URL("./sounds/moveShake.m4a", import.meta.url)),
+  },
+  moveShake2: {
+    name: "moveShake2",
+    start: 1050,
+    audio: new Audio(new URL("./sounds/moveShake2.m4a", import.meta.url)),
+  },
+  moveSimple: {
+    name: "moveSimple",
+    start: 1040,
+    audio: new Audio(new URL("./sounds/moveSimple.m4a", import.meta.url)),
+  },
+  moveTwice: {
+    name: "moveTwice",
+    start: 440,
+    audio: new Audio(new URL("./sounds/moveTwice.m4a", import.meta.url)),
+  },
+  wheelRotate: {
+    name: "wheelRotate",
+    start: 300,
+    audio: new Audio(new URL("./sounds/wheelRotate.m4a", import.meta.url)),
+  },
+  wheelTouch: {
+    name: "wheelTouch",
+    start: 160,
+    audio: new Audio(new URL("./sounds/wheelTouch.m4a", import.meta.url)),
+  },
+};
 
 init();
 animate();
@@ -38,19 +124,19 @@ function initCamera() {
   camera.position.set(6, 2, 8);
   const distance = 18;
 
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.minDistance = distance;
-  controls.maxDistance = distance;
-  controls.enableDamping = false;
-  controls.enableZoom = false;
-  controls.enablePan = false;
-  controls.minPolarAngle = 0;
-  controls.maxPolarAngle = Math.PI * 0.582;
-  // controls.enableRotate = false;
-  controls.autoRotate = true;
-  controls.update();
+  orbit = new OrbitControls(camera, renderer.domElement);
+  orbit.minDistance = distance;
+  orbit.maxDistance = distance;
+  orbit.enableDamping = false;
+  orbit.enableZoom = false;
+  orbit.enablePan = false;
+  orbit.minPolarAngle = 0;
+  orbit.maxPolarAngle = Math.PI * 0.582;
+  // orbit.enableRotate = false;
+  orbit.autoRotate = true;
+  orbit.update();
 
-  const transform = new TransformControls(camera, renderer.domElement);
+  transform = new TransformControls(camera, renderer.domElement);
   transform.attach(object);
   transform.setMode("rotate");
   transform.visible = false;
@@ -59,17 +145,24 @@ function initCamera() {
     if (transform.axis !== "XYZE" || transform.axis !== "E") {
       transform.axis = "XYZE";
     }
-    controls.enabled = !event.value;
+
+    orbit.enabled = !event.value;
+
+    if (event.value) {
+      const stop = playSound(SOUND.moveLight, true);
+      once(window, "mouseup", () => stop());
+    }
 
     // transform.visible = event.value;
 
     // if (event.value) {
-    // controls.enabled = true;
+    // orbit.enabled = true;
     //   clearTimeout(tid);
     // } else {
     //   tid = setTimeout(() => (transform.visible = false), 250);
     // }
   });
+
   scene.add(transform);
 }
 
@@ -180,11 +273,57 @@ function initModel() {
   });
 }
 
+function playSound(sound, loop = false, cb = () => {}) {
+  sound.audio.currentTime = (sound.start || 0) / 1000;
+  sound.audio.loop = loop;
+  sound.audio.play();
+  sound.audio.volume = sound.volume || 0.6;
+
+  sound.playing = true;
+
+  console.log("play", sound.name, sound.audio.currentTime);
+
+  const currentPlayId = {};
+  sound.audio.currentPlayId = currentPlayId;
+
+  // if (loop) {
+  //   const handler = () => {
+  //     if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
+  //       sound.audio.currentTime = (sound.start || 0) / 1000;
+  //       sound.audio.play();
+  //     }
+  //   };
+  //   const cbOrg = cb;
+  //   cb = () => {
+  //     sound.audio.removeEventListener("ended", handler);
+  //     cbOrg();
+  //   };
+  //   sound.audio.addEventListener("ended", handler);
+  // }
+  once(sound.audio, "ended", () => {
+    if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
+      console.log("ended", sound.name);
+      sound.playing = false;
+      cb();
+    }
+  });
+
+  return () => {
+    if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
+      console.log("stop", sound.name);
+      sound.audio.pause();
+      sound.audio.loop = false;
+      cb();
+    }
+  };
+}
+
 function init() {
   initRenderer();
   initScene();
   initModel();
   initCamera();
+  onWindowResize();
 
   window.addEventListener("resize", onWindowResize);
 }
@@ -194,11 +333,17 @@ function onWindowResize() {
   camera.updateProjectionMatrix();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
+
+  screenDiagonal = Math.hypot(window.innerWidth, window.innerHeight);
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  controls.update();
+  orbit.update();
+
+  if (INPUT.isDown) {
+    INPUT.history.push(INPUT.current);
+  }
 
   render();
 }
@@ -206,3 +351,129 @@ function animate() {
 function render() {
   renderer.render(scene, camera);
 }
+
+function once(object, eventName, cb) {
+  function handler(event) {
+    object.removeEventListener(eventName, handler);
+    cb(event);
+  }
+
+  object.addEventListener(eventName, handler);
+}
+
+function getDistance(a, b) {
+  return Math.abs(Math.hypot(a.x - b.x, a.y - b.y));
+}
+
+function randomElement(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+window.addEventListener("mousedown", (event) => {
+  INPUT.current = { x: event.clientX, y: event.clientY };
+  INPUT.history = [INPUT.current];
+  INPUT.start = INPUT.current;
+  INPUT.last = INPUT.current;
+  INPUT.isDown = true;
+  INPUT.distance = 0;
+});
+
+function isShaking(points) {
+  let lastPike = points[0];
+  let lastDistance = 0;
+  // let totalDistance = 0;
+  let pikes = [];
+
+  points.forEach((point) => {
+    const dist = getDistance(lastPike, point);
+
+    // We are moving closer again
+    if (dist < lastDistance) {
+      // totalDistance += lastDistance;
+      lastPike = point;
+      pikes.push(dist);
+      lastDistance = 0;
+    } else {
+      lastDistance = dist;
+    }
+  });
+
+  const avg = pikes.reduce((a, b) => a + b, 0) / pikes.length;
+
+  return avg > screenDiagonal * 0.02 && pikes.length > 2;
+}
+
+window.addEventListener("mousemove", (event) => {
+  INPUT.current = { x: event.clientX, y: event.clientY };
+  // mousemove is trigger before mousedown
+  INPUT.start = INPUT.start || INPUT.current;
+  INPUT.distance = getDistance(INPUT.current, INPUT.start);
+
+  if (
+    !orbit.enabled &&
+    !(
+      SOUND.moveShake.playing ||
+      SOUND.moveShake2.playing ||
+      SOUND.moveSimple.playing ||
+      SOUND.moveTwice.playing
+    )
+  ) {
+    if (
+      INPUT.history.length > 60 &&
+      !(SOUND.moveShake.playing || SOUND.moveShake2.playing)
+    ) {
+      if (isShaking(INPUT.history.splice(INPUT.history.length - 50))) {
+        playSound(randomElement([SOUND.moveShake, SOUND.moveShake2]));
+      }
+    }
+
+    if (INPUT.history.length > 6 && INPUT.isDown && Math.random() > 0.94) {
+      const dist = getDistance(
+        INPUT.current,
+        INPUT.history[INPUT.history.length - 5]
+      );
+
+      if (dist > screenDiagonal * 0.05) {
+        playSound(randomElement([SOUND.moveTwice, SOUND.moveSimple]));
+      }
+    }
+  }
+});
+
+window.addEventListener("mouseup", (event) => {
+  INPUT.current = { x: event.clientX, y: event.clientY };
+  INPUT.history.push(INPUT.current);
+  INPUT.isDown = false;
+  INPUT.start = null;
+});
+
+window.addEventListener("mouseup", () => {
+  if (!SOUND.lightUp.inAction) {
+    playSound(SOUND.lightUp);
+    SOUND.lightUp.inAction = true;
+
+    const tid = setTimeout(() => {
+      SOUND.lightUp.inAction = false;
+    }, 100);
+
+    once(window, "mousedown", () => {
+      if (!SOUND.lightUp.inAction) return;
+
+      clearTimeout(tid);
+
+      playSound(SOUND.gasStart);
+      const stop1 = playSound(SOUND.flame, true);
+      const stop2 = playSound(SOUND.gasRunning, true);
+
+      once(window, "mouseup", () => {
+        stop1();
+        stop2();
+        playSound(SOUND.gasStop);
+
+        setTimeout(() => {
+          SOUND.lightUp.inAction = false;
+        }, 10);
+      });
+    });
+  }
+});
