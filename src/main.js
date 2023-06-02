@@ -353,6 +353,34 @@ function animate() {
     wheel2.rotation.y = wheel1.rotation.y;
   }
 
+  function easeOutQuint(x) {
+    return 1 - Math.pow(1 - x, 5);
+  }
+
+  function easeInOutQuint(x) {
+    return x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
+  }
+
+  if (!object.position.y_) {
+    object.position.y_ = 0;
+  }
+
+  if (INPUT.over) {
+    if (object.position.y_ < 1) {
+      object.position.y_ += 0.03;
+      object.position.y = -1 + easeOutQuint(object.position.y_) * 0.5;
+    } else {
+      object.position.y_ = 1;
+    }
+  } else {
+    if (object.position.y_ > 0) {
+      object.position.y_ -= 0.01;
+      object.position.y = -1 + easeInOutQuint(object.position.y_) * 0.5;
+    } else {
+      object.position.y_ = 0;
+    }
+  }
+
   render();
 }
 
@@ -523,6 +551,10 @@ window.addEventListener("mousemove", (event) => {
       }
     }
   }
+
+  const intersects = raycast();
+  // Over the object
+  INPUT.over = intersects.some((i) => i.object.castShadow);
 });
 
 window.addEventListener("mouseup", (event) => {
