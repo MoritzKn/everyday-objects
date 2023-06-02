@@ -25,6 +25,8 @@ const INPUT = {
   distance: 0,
 };
 
+const raycaster = new THREE.Raycaster();
+
 const object = new THREE.Group();
 object.position.y = -1;
 
@@ -59,7 +61,7 @@ const SOUND = {
   lightUp: {
     name: "lightUp",
     start: 200,
-    volume: 0.4,
+    volume: 0.2,
     audio: new Audio(new URL("./sounds/lightUp.m4a", import.meta.url)),
   },
   moveLight: {
@@ -89,12 +91,14 @@ const SOUND = {
   },
   wheelRotate: {
     name: "wheelRotate",
-    start: 300,
+    start: 380,
+    volume: 0.8,
     audio: new Audio(new URL("./sounds/wheelRotate.m4a", import.meta.url)),
   },
   wheelTouch: {
     name: "wheelTouch",
     start: 160,
+    volume: 1,
     audio: new Audio(new URL("./sounds/wheelTouch.m4a", import.meta.url)),
   },
 };
@@ -163,7 +167,7 @@ function initCamera() {
     // }
   });
 
-  scene.add(transform);
+  // scene.add(transform);
 }
 
 function initScene() {
@@ -352,6 +356,8 @@ function render() {
   renderer.render(scene, camera);
 }
 
+////////////////////////////////////////////////////////////
+
 function once(object, eventName, cb) {
   function handler(event) {
     object.removeEventListener(eventName, handler);
@@ -368,15 +374,6 @@ function getDistance(a, b) {
 function randomElement(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
-
-window.addEventListener("mousedown", (event) => {
-  INPUT.current = { x: event.clientX, y: event.clientY };
-  INPUT.history = [INPUT.current];
-  INPUT.start = INPUT.current;
-  INPUT.last = INPUT.current;
-  INPUT.isDown = true;
-  INPUT.distance = 0;
-});
 
 function isShaking(points) {
   let lastPike = points[0];
@@ -402,6 +399,115 @@ function isShaking(points) {
 
   return avg > screenDiagonal * 0.02 && pikes.length > 2;
 }
+
+function startActionLightUp() {
+  if (SOUND.lightUp.inAction) return;
+  SOUND.lightUp.inAction = true;
+
+  const stop1 = playSound(SOUND.wheelRotate);
+
+  once(window, "mouseup", () => {
+    stop1();
+
+    playSound(SOUND.lightUp);
+
+    const tid = setTimeout(() => {
+      SOUND.lightUp.inAction = false;
+    }, 400);
+
+    once(window, "mousedown", () => {
+      const intersects = raycast();
+
+      if (intersects.length && intersects[0].object.name === "Cylinder011") {
+        playSound(SOUND.wheelRotate);
+        return;
+      }
+
+      if (intersects.length && intersects[0].object.name !== "LeverHandle") {
+        return;
+      }
+
+      if (!SOUND.lightUp.inAction) return;
+      clearTimeout(tid);
+
+      playSound(SOUND.gasStart);
+      const stop1 = playSound(SOUND.flame, true);
+      const stop2 = playSound(SOUND.gasRunning, true);
+
+      once(window, "mouseup", () => {
+        stop1();
+        stop2();
+        playSound(SOUND.gasStop);
+
+        setTimeout(() => {
+          SOUND.lightUp.inAction = false;
+        }, 10);
+      });
+    });
+  });
+}
+
+function startActionGas() {
+  if (SOUND.gasRunning.inAction) return;
+  SOUND.gasRunning.inAction = true;
+
+  playSound(SOUND.gasStart);
+  const stop = playSound(SOUND.gasRunning, true);
+
+  once(window, "mouseup", () => {
+    stop();
+    playSound(SOUND.gasStop);
+    SOUND.gasRunning.inAction = false;
+  });
+}
+
+function raycast() {
+  if (INPUT.current) {
+    const pos = new THREE.Vector2(
+      (INPUT.current.x / window.innerWidth) * 2 - 1,
+      (INPUT.current.y / window.innerHeight) * -2 + 1
+    );
+    // update the picking ray with the camera and pointer position
+    raycaster.setFromCamera(pos, camera);
+
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    console.log(
+      "intersects",
+      intersects.map((i) => i.object.name)
+    );
+
+    return intersects;
+  }
+
+  return [];
+}
+
+///////////////
+
+window.addEventListener("mousedown", (event) => {
+  INPUT.current = { x: event.clientX, y: event.clientY };
+  INPUT.history = [INPUT.current];
+  INPUT.start = INPUT.current;
+  INPUT.last = INPUT.current;
+  INPUT.isDown = true;
+  INPUT.distance = 0;
+
+  const intersects = raycast();
+
+  if (intersects.length > 0 && intersects[0].object.name === "Cylinder011") {
+    startActionLightUp();
+  }
+
+  if (
+    intersects.length > 0 &&
+    intersects[0].object.name === "LeverHandle" &&
+    !SOUND.lightUp.inAction
+  ) {
+    startActionGas();
+  }
+});
 
 window.addEventListener("mousemove", (event) => {
   INPUT.current = { x: event.clientX, y: event.clientY };
@@ -445,35 +551,4 @@ window.addEventListener("mouseup", (event) => {
   INPUT.history.push(INPUT.current);
   INPUT.isDown = false;
   INPUT.start = null;
-});
-
-window.addEventListener("mouseup", () => {
-  if (!SOUND.lightUp.inAction) {
-    playSound(SOUND.lightUp);
-    SOUND.lightUp.inAction = true;
-
-    const tid = setTimeout(() => {
-      SOUND.lightUp.inAction = false;
-    }, 100);
-
-    once(window, "mousedown", () => {
-      if (!SOUND.lightUp.inAction) return;
-
-      clearTimeout(tid);
-
-      playSound(SOUND.gasStart);
-      const stop1 = playSound(SOUND.flame, true);
-      const stop2 = playSound(SOUND.gasRunning, true);
-
-      once(window, "mouseup", () => {
-        stop1();
-        stop2();
-        playSound(SOUND.gasStop);
-
-        setTimeout(() => {
-          SOUND.lightUp.inAction = false;
-        }, 10);
-      });
-    });
-  }
 });
