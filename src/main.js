@@ -8,12 +8,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
-let camera,
-  scene,
-  renderer,
-  orbit,
-  transform,
-  screenDiagonal = 0;
+let camera, scene, renderer, orbit, transform, screenDiagonal;
+
+const raycaster = new THREE.Raycaster();
+const object = new THREE.Group();
+object.position.y = -1;
 
 const INPUT = {
   start: null,
@@ -24,11 +23,6 @@ const INPUT = {
   isDown: false,
   distance: 0,
 };
-
-const raycaster = new THREE.Raycaster();
-
-const object = new THREE.Group();
-object.position.y = -1;
 
 const SOUND = {
   flame: {
@@ -97,9 +91,6 @@ const SOUND = {
     audio: new Audio(new URL("./sounds/wheelTouch.m4a", import.meta.url)),
   },
 };
-
-window.SOUND = SOUND;
-window.INPUT = INPUT;
 
 init();
 animate();
@@ -188,26 +179,26 @@ function initScene() {
   dirLight.shadow.normalBias = 0.01;
   scene.add(dirLight);
 
-  const dirLigh2 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh2.position.set(6, 0, -5);
-  dirLigh2.castShadow = true;
-  dirLigh2.shadow.bias = -0.00006;
-  dirLigh2.shadow.normalBias = 0.01;
-  scene.add(dirLigh2);
+  const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLight2.position.set(6, 0, -5);
+  dirLight2.castShadow = true;
+  dirLight2.shadow.bias = -0.00006;
+  dirLight2.shadow.normalBias = 0.01;
+  scene.add(dirLight2);
 
-  const dirLigh3 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh3.position.set(-5, 0, -6);
-  dirLigh3.castShadow = true;
-  dirLigh3.shadow.bias = -0.00006;
-  dirLigh3.shadow.normalBias = 0.01;
-  scene.add(dirLigh3);
+  const dirLight3 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLight3.position.set(-5, 0, -6);
+  dirLight3.castShadow = true;
+  dirLight3.shadow.bias = -0.00006;
+  dirLight3.shadow.normalBias = 0.01;
+  scene.add(dirLight3);
 
-  const dirLigh4 = new THREE.DirectionalLight(0xffffff, 0.08);
-  dirLigh4.position.set(-5, 0, 5);
-  dirLigh4.castShadow = true;
-  dirLigh4.shadow.bias = -0.00006;
-  dirLigh4.shadow.normalBias = 0.01;
-  scene.add(dirLigh4);
+  const dirLight4 = new THREE.DirectionalLight(0xffffff, 0.08);
+  dirLight4.position.set(-5, 0, 5);
+  dirLight4.castShadow = true;
+  dirLight4.shadow.bias = -0.00006;
+  dirLight4.shadow.normalBias = 0.01;
+  scene.add(dirLight4);
 
   // Make the ground lighter in the center
   const light = new THREE.PointLight("#dddddd", 1, 30);
@@ -278,19 +269,19 @@ function initModel() {
 function playSound(sound, loop = false, cb = () => {}) {
   sound.audio.currentTime = (sound.start || 0) / 1000;
   sound.audio.loop = loop;
-  sound.audio.play();
+  sound.audio.play().catch(() => {});
   sound.audio.volume = sound.volume || 0.6;
 
   sound.playing = true;
 
-  console.log("play", sound.name, sound.audio.currentTime);
+  console.debug("play", sound.name, sound.audio.currentTime);
 
   const currentPlayId = {};
   sound.audio.currentPlayId = currentPlayId;
 
   once(sound.audio, "ended", () => {
     if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
-      console.log("ended", sound.name);
+      console.debug("ended", sound.name);
       sound.playing = false;
       cb();
     }
@@ -298,7 +289,7 @@ function playSound(sound, loop = false, cb = () => {}) {
 
   return () => {
     if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
-      console.log("stop", sound.name);
+      console.debug("stop", sound.name);
       sound.audio.pause();
       sound.audio.loop = false;
       cb();
@@ -306,11 +297,33 @@ function playSound(sound, loop = false, cb = () => {}) {
   };
 }
 
+function raycast() {
+  if (INPUT.current) {
+    const pos = new THREE.Vector2(
+      (INPUT.current.x / window.innerWidth) * 2 - 1,
+      (INPUT.current.y / window.innerHeight) * -2 + 1
+    );
+    // update the picking ray with the camera and pointer position
+    raycaster.setFromCamera(pos, camera);
+
+    // calculate objects intersecting the picking ray
+    const intersects = raycaster
+      .intersectObjects(scene.children)
+      .filter((i) => i.object.receiveShadow && i.object.visible);
+    console.debug("intersects:", ...intersects.map((i) => i.object.name));
+
+    return intersects;
+  }
+
+  return [];
+}
+
 function init() {
   initRenderer();
   initScene();
   initModel();
   initCamera();
+
   onWindowResize();
 
   window.addEventListener("resize", onWindowResize);
@@ -447,31 +460,6 @@ function startActionFlame() {
   });
 }
 
-function raycast() {
-  if (INPUT.current) {
-    const pos = new THREE.Vector2(
-      (INPUT.current.x / window.innerWidth) * 2 - 1,
-      (INPUT.current.y / window.innerHeight) * -2 + 1
-    );
-    // update the picking ray with the camera and pointer position
-    raycaster.setFromCamera(pos, camera);
-
-    // calculate objects intersecting the picking ray
-    const intersects = raycaster
-      .intersectObjects(scene.children)
-      .filter((i) => i.object.receiveShadow && i.object.visible);
-    console.log(intersects);
-    console.log(
-      "intersects",
-      intersects.map((i) => i.object.name)
-    );
-
-    return intersects;
-  }
-
-  return [];
-}
-
 ///////////////
 
 window.addEventListener("mousedown", (event) => {
@@ -548,10 +536,16 @@ window.addEventListener("click", () => {
   const intersects = raycast();
   if (
     intersects.length > 0 &&
+    Math.random() > 0.5 &&
     ["Tank", "Cylinder011_1"].includes(intersects[0].object.name)
   ) {
     playSound(
-      randomElement([SOUND.moveTwice, SOUND.moveSimple, SOUND.moveSimple])
+      randomElement([
+        SOUND.moveTwice,
+        SOUND.moveSimple,
+        SOUND.moveSimple,
+        SOUND.moveSimple,
+      ])
     );
   }
 });
