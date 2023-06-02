@@ -31,11 +31,6 @@ const object = new THREE.Group();
 object.position.y = -1;
 
 const SOUND = {
-  test: {
-    name: "test",
-    start: 800,
-    audio: new Audio(new URL("./sounds/test.m4a", import.meta.url)),
-  },
   flame: {
     name: "flame",
     start: 0,
@@ -49,7 +44,7 @@ const SOUND = {
   },
   gasStop: {
     name: "gasStop",
-    start: 400,
+    start: 750,
     volume: 1,
     audio: new Audio(new URL("./sounds/gasStop.m4a", import.meta.url)),
   },
@@ -102,6 +97,9 @@ const SOUND = {
     audio: new Audio(new URL("./sounds/wheelTouch.m4a", import.meta.url)),
   },
 };
+
+window.SOUND = SOUND;
+window.INPUT = INPUT;
 
 init();
 animate();
@@ -167,7 +165,7 @@ function initCamera() {
     // }
   });
 
-  // scene.add(transform);
+  scene.add(transform);
 }
 
 function initScene() {
@@ -213,7 +211,7 @@ function initScene() {
 
   // Make the ground lighter in the center
   const light = new THREE.PointLight("#dddddd", 1, 30);
-  light.position.set(0, 10, 0);
+  light.position.set(0, 8, 0);
   scene.add(light);
 
   const ground = new THREE.Mesh(
@@ -290,20 +288,6 @@ function playSound(sound, loop = false, cb = () => {}) {
   const currentPlayId = {};
   sound.audio.currentPlayId = currentPlayId;
 
-  // if (loop) {
-  //   const handler = () => {
-  //     if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
-  //       sound.audio.currentTime = (sound.start || 0) / 1000;
-  //       sound.audio.play();
-  //     }
-  //   };
-  //   const cbOrg = cb;
-  //   cb = () => {
-  //     sound.audio.removeEventListener("ended", handler);
-  //     cbOrg();
-  //   };
-  //   sound.audio.addEventListener("ended", handler);
-  // }
   once(sound.audio, "ended", () => {
     if (sound.playing && sound.audio.currentPlayId === currentPlayId) {
       console.log("ended", sound.name);
@@ -349,6 +333,13 @@ function animate() {
     INPUT.history.push(INPUT.current);
   }
 
+  if (SOUND.wheelRotate.inAction) {
+    const wheel1 = scene.getObjectByName("Cylinder011", true);
+    const wheel2 = scene.getObjectByName("Cylinder011_1", true);
+    wheel1.rotation.y -= Math.PI * 0.1;
+    wheel2.rotation.y = wheel1.rotation.y;
+  }
+
   render();
 }
 
@@ -378,7 +369,6 @@ function randomElement(list) {
 function isShaking(points) {
   let lastPike = points[0];
   let lastDistance = 0;
-  // let totalDistance = 0;
   let pikes = [];
 
   points.forEach((point) => {
@@ -386,7 +376,6 @@ function isShaking(points) {
 
     // We are moving closer again
     if (dist < lastDistance) {
-      // totalDistance += lastDistance;
       lastPike = point;
       pikes.push(dist);
       lastDistance = 0;
@@ -400,64 +389,61 @@ function isShaking(points) {
   return avg > screenDiagonal * 0.02 && pikes.length > 2;
 }
 
+let tid;
 function startActionLightUp() {
-  if (SOUND.lightUp.inAction) return;
+  clearTimeout(tid);
+
   SOUND.lightUp.inAction = true;
+  SOUND.wheelRotate.inAction = true;
 
   const stop1 = playSound(SOUND.wheelRotate);
+  const startTime = Date.now();
 
   once(window, "mouseup", () => {
     stop1();
+    SOUND.wheelRotate.inAction = false;
 
-    playSound(SOUND.lightUp);
-
-    const tid = setTimeout(() => {
+    if (Date.now() - startTime < 80) {
+      playSound(SOUND.wheelTouch);
       SOUND.lightUp.inAction = false;
-    }, 400);
-
-    once(window, "mousedown", () => {
-      const intersects = raycast();
-
-      if (intersects.length && intersects[0].object.name === "Cylinder011") {
-        playSound(SOUND.wheelRotate);
-        return;
-      }
-
-      if (intersects.length && intersects[0].object.name !== "LeverHandle") {
-        return;
-      }
-
-      if (!SOUND.lightUp.inAction) return;
-      clearTimeout(tid);
-
-      playSound(SOUND.gasStart);
-      const stop1 = playSound(SOUND.flame, true);
-      const stop2 = playSound(SOUND.gasRunning, true);
-
-      once(window, "mouseup", () => {
-        stop1();
-        stop2();
-        playSound(SOUND.gasStop);
-
-        setTimeout(() => {
-          SOUND.lightUp.inAction = false;
-        }, 10);
-      });
-    });
+    } else {
+      tid = setTimeout(() => {
+        SOUND.lightUp.inAction = false;
+      }, 400);
+    }
   });
 }
 
 function startActionGas() {
-  if (SOUND.gasRunning.inAction) return;
   SOUND.gasRunning.inAction = true;
 
-  playSound(SOUND.gasStart);
   const stop = playSound(SOUND.gasRunning, true);
+
+  const lever = scene.getObjectByName("Lever", true);
+  lever.rotation.z = Math.PI * 0.02;
 
   once(window, "mouseup", () => {
     stop();
     playSound(SOUND.gasStop);
     SOUND.gasRunning.inAction = false;
+    lever.rotation.z = 0;
+  });
+}
+
+function startActionFlame() {
+  SOUND.flame.inAction = true;
+
+  playSound(SOUND.lightUp);
+  const stop = playSound(SOUND.flame, true);
+
+  const lever = scene.getObjectByName("Lever", true);
+  lever.rotation.z = Math.PI * 0.03;
+
+  once(window, "mouseup", () => {
+    stop();
+    playSound(SOUND.gasStop);
+    SOUND.flame.inAction = false;
+    lever.rotation.z = 0;
   });
 }
 
@@ -471,8 +457,10 @@ function raycast() {
     raycaster.setFromCamera(pos, camera);
 
     // calculate objects intersecting the picking ray
-    const intersects = raycaster.intersectObjects(scene.children);
-
+    const intersects = raycaster
+      .intersectObjects(scene.children)
+      .filter((i) => i.object.receiveShadow);
+    console.log(intersects);
     console.log(
       "intersects",
       intersects.map((i) => i.object.name)
@@ -496,16 +484,29 @@ window.addEventListener("mousedown", (event) => {
 
   const intersects = raycast();
 
-  if (intersects.length > 0 && intersects[0].object.name === "Cylinder011") {
+  if (
+    intersects.length > 0 &&
+    ["Cylinder011", "Cylinder011_1"].includes(intersects[0].object.name)
+  ) {
     startActionLightUp();
   }
 
+  if (intersects.length > 0 && intersects[0].object.name === "LeverHandle") {
+    if (SOUND.lightUp.inAction) {
+      startActionFlame();
+    } else {
+      startActionGas();
+    }
+  }
+});
+
+window.addEventListener("click", () => {
+  const intersects = raycast();
   if (
     intersects.length > 0 &&
-    intersects[0].object.name === "LeverHandle" &&
-    !SOUND.lightUp.inAction
+    ["Tank", "Cylinder011_1"].includes(intersects[0].object.name)
   ) {
-    startActionGas();
+    playSound(randomElement([SOUND.moveTwice, SOUND.moveSimple]));
   }
 });
 
