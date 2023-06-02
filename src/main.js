@@ -9,6 +9,7 @@ import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
 let camera, scene, renderer, orbit, transform, screenDiagonal;
+let isTouch;
 
 const raycaster = new THREE.Raycaster();
 const object = new THREE.Group();
@@ -386,12 +387,18 @@ function render() {
 ////////////////////////////////////////////////////////////
 
 function once(object, eventName, cb) {
+  let eventList = Array.isArray(eventName) ? eventName : [eventName];
+
   function handler(event) {
-    object.removeEventListener(eventName, handler);
+    eventList.forEach((name) => {
+      object.removeEventListener(name, handler);
+    });
     cb(event);
   }
 
-  object.addEventListener(eventName, handler);
+  eventList.forEach((name) => {
+    object.addEventListener(name, handler);
+  });
 }
 
 function getDistance(a, b) {
@@ -435,7 +442,7 @@ function startActionLightUp() {
   const stop1 = playSound(SOUND.wheelRotate);
   const startTime = Date.now();
 
-  once(window, "mouseup", () => {
+  once(window, ["mouseup", "touchend"], () => {
     stop1();
     SOUND.wheelRotate.inAction = false;
 
@@ -458,7 +465,7 @@ function startActionGas() {
   const lever = scene.getObjectByName("Lever", true);
   lever.rotation.z = Math.PI * 0.02;
 
-  once(window, "mouseup", () => {
+  once(window, ["mouseup", "touchend"], () => {
     stop();
     playSound(SOUND.gasStop);
     SOUND.gasRunning.inAction = false;
@@ -475,7 +482,7 @@ function startActionFlame() {
   const lever = scene.getObjectByName("Lever", true);
   lever.rotation.z = Math.PI * 0.03;
 
-  once(window, "mouseup", () => {
+  once(window, ["mouseup", "touchend"], () => {
     stop();
     playSound(SOUND.gasStop);
     SOUND.flame.inAction = false;
@@ -487,6 +494,18 @@ function startActionFlame() {
 
 window.addEventListener("mousedown", (event) => {
   INPUT.current = { x: event.clientX, y: event.clientY };
+  onMouseDown();
+});
+
+window.addEventListener("touchstart", (event) => {
+  isTouch = true;
+  window.removeEventListener("contextmenu", onContextmenu);
+
+  INPUT.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  onMouseDown();
+});
+
+function onMouseDown() {
   INPUT.history = [INPUT.current];
   INPUT.start = INPUT.current;
   INPUT.last = INPUT.current;
@@ -509,12 +528,22 @@ window.addEventListener("mousedown", (event) => {
       startActionGas();
     }
   }
-});
+}
 
 window.addEventListener("mousemove", (event) => {
   INPUT.current = { x: event.clientX, y: event.clientY };
+  onMouseMove();
+});
+
+window.addEventListener("touchmove", (event) => {
+  INPUT.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  onMouseMove();
+});
+
+function onMouseMove() {
   // mousemove is trigger before mousedown
   INPUT.start = INPUT.start || INPUT.current;
+
   INPUT.distance = getDistance(INPUT.current, INPUT.start);
 
   if (
@@ -544,14 +573,21 @@ window.addEventListener("mousemove", (event) => {
     }
   }
 
-  const intersects = raycast();
-  // Over the object
-  INPUT.over = intersects.some((i) => i.object.castShadow);
-});
+  if (!isTouch) {
+    const intersects = raycast();
+    // Over the object
+    INPUT.over = intersects.some((i) => i.object.castShadow);
+  }
+}
 
 window.addEventListener("mouseup", (event) => {
   INPUT.current = { x: event.clientX, y: event.clientY };
   INPUT.history.push(INPUT.current);
+  INPUT.isDown = false;
+  INPUT.start = null;
+});
+
+window.addEventListener("touchend", () => {
   INPUT.isDown = false;
   INPUT.start = null;
 });
@@ -574,7 +610,9 @@ window.addEventListener("click", () => {
   }
 });
 
-window.addEventListener("contextmenu", () => {
+window.addEventListener("contextmenu", onContextmenu);
+
+function onContextmenu() {
   const intersects = raycast();
   for (let index = 0; index < intersects.length; index++) {
     const object = intersects[index].object;
@@ -597,7 +635,7 @@ window.addEventListener("contextmenu", () => {
       break;
     }
   }
-});
+}
 
 window.addEventListener("keydown", function (event) {
   if (event.key === "Escape") {
