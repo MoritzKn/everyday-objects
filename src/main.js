@@ -363,15 +363,17 @@ function animate() {
 
   if (INPUT.over) {
     if (object.position.y_ < 1) {
+      const delta = easeOutQuint(object.position.y_, object.position.y_ + 0.03);
       object.position.y_ += 0.03;
-      object.position.y = -1 + easeOutQuint(object.position.y_) * 0.5;
+      object.position.y = -1 + delta * 0.5;
     } else {
       object.position.y_ = 1;
     }
   } else {
     if (object.position.y_ > 0) {
+      const delta = easeOutQuint(object.position.y_, object.position.y_ - 0.03);
       object.position.y_ -= 0.01;
-      object.position.y = -1 + easeInOutQuint(object.position.y_) * 0.5;
+      object.position.y = -1 + delta * 0.5;
     } else {
       object.position.y_ = 0;
     }
