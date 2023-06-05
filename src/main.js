@@ -29,7 +29,7 @@ const SOUND = {
   flame: {
     name: "flame",
     start: 0,
-    volume: 1,
+    volume: 0.6,
     audio: new Audio(new URL("./sounds/flame.m4a", import.meta.url)),
   },
   gasStart: {
@@ -45,7 +45,8 @@ const SOUND = {
   },
   gasRunning: {
     name: "gasRunning",
-    start: 0.9,
+    start: 0,
+    // volume: 0.5,
     audio: new Audio(new URL("./sounds/gasRunning.m4a", import.meta.url)),
   },
   lightUp: {
@@ -293,7 +294,13 @@ function playSound(sound, loop = false, cb = () => {}) {
   };
 }
 
-function raycast() {
+function stopSound(sound) {
+  console.debug("stop", sound.name);
+  sound.audio.pause();
+  sound.audio.loop = false;
+}
+
+function raycast(logDebug) {
   if (INPUT.current) {
     const pos = new THREE.Vector2(
       (INPUT.current.x / window.innerWidth) * 2 - 1,
@@ -306,7 +313,10 @@ function raycast() {
     const intersects = raycaster
       .intersectObjects(scene.children)
       .filter((i) => i.object.receiveShadow && i.object.visible);
-    console.debug("intersects:", ...intersects.map((i) => i.object.name));
+
+    if (logDebug !== false) {
+      console.debug("intersects:", ...intersects.map((i) => i.object.name));
+    }
 
     return intersects;
   }
@@ -338,14 +348,27 @@ function animate() {
   requestAnimationFrame(animate);
   orbit.update();
 
+  // const lastInput = INPUT.history && INPUT.history[INPUT.history.length - 1];
   if (INPUT.isDown) {
     INPUT.history.push(INPUT.current);
   }
 
-  if (SOUND.wheelRotate.inAction) {
-    const wheel1 = scene.getObjectByName("Cylinder011", true);
-    const wheel2 = scene.getObjectByName("Cylinder011_1", true);
-    wheel1.rotation.y -= Math.PI * 0.1;
+  const wheel1 = scene.getObjectByName("Cylinder011", true);
+  const wheel2 = scene.getObjectByName("Cylinder011_1", true);
+  if (wheel1 && INPUT.history[INPUT.history.length - 1]) {
+    const dt = 1000 / 60;
+    // const distance = lastInput.sub(INPUT.current);
+    // const speed = Math.PI * (distance.x / screenDiagonal) * 10;
+    const speed = Math.PI * 0.3;
+    if (SOUND.wheelRotate.inAction) {
+      wheel1.rotation.y_ = speed;
+    } else if (wheel1.rotation.y_ > 0) {
+      wheel1.rotation.y_ -= wheel1.rotation.y_ / 20 + speed / 100;
+    } else {
+      wheel1.rotation.y_ = 0;
+    }
+
+    wheel1.rotation.y += wheel1.rotation.y_ / dt;
     wheel2.rotation.y = wheel1.rotation.y;
   }
 
@@ -377,6 +400,23 @@ function animate() {
     } else {
       object.position.y_ = 0;
     }
+  }
+
+  const tube = scene.getObjectByName("Tube", true);
+  if (tube) {
+    const pos1 = new THREE.Vector3();
+    const pos2 = new THREE.Vector3();
+    tube.getWorldPosition(pos1);
+    camera.getWorldPosition(pos2);
+    const dist = pos1.distanceTo(pos2);
+    const min = 13;
+    const max = 24;
+    const normalDist = (dist - min) / (max - min);
+
+    SOUND.gasRunning.volume = 1 - normalDist;
+    SOUND.gasRunning.audio.volume = SOUND.gasRunning.volume;
+    SOUND.flame.volume = 1 - normalDist;
+    SOUND.flame.audio.volume = SOUND.flame.volume;
   }
 
   render();
@@ -435,30 +475,50 @@ function isShaking(points) {
 }
 
 let tid;
+
+function finishActionLightUp(successful) {
+  if (!SOUND.wheelRotate.inAction) {
+    return;
+  }
+
+  SOUND.wheelRotate.inAction = false;
+
+  if (successful) {
+    playSound(SOUND.wheelTouch);
+    SOUND.lightUp.inAction = false;
+  } else {
+    tid = setTimeout(
+      () => {
+        SOUND.lightUp.inAction = false;
+      },
+      isTouch ? 900 : 400
+    );
+  }
+}
+
 function startActionLightUp() {
   clearTimeout(tid);
+
+  console.log("mouse down ActionLightUp", orbit.enabled, transform.enabled);
+  if (orbit.enabled) {
+    orbit.enabled = false;
+    transform.enabled = false;
+  }
 
   SOUND.lightUp.inAction = true;
   SOUND.wheelRotate.inAction = true;
 
-  const stop1 = playSound(SOUND.wheelRotate);
+  const stop1 = playSound(SOUND.wheelRotate, true);
   const startTime = Date.now();
 
   once(window, ["mouseup", "touchend"], () => {
-    stop1();
-    SOUND.wheelRotate.inAction = false;
-
-    if (Date.now() - startTime < 80) {
-      playSound(SOUND.wheelTouch);
-      SOUND.lightUp.inAction = false;
-    } else {
-      tid = setTimeout(
-        () => {
-          SOUND.lightUp.inAction = false;
-        },
-        isTouch ? 900 : 400
-      );
+    console.log("mouse up ActionLightUp", orbit.enabled, transform.enabled);
+    if (!transform.enabled) {
+      orbit.enabled = true;
+      transform.enabled = true;
     }
+    stop1();
+    finishActionLightUp(Date.now() - startTime < 80);
   });
 }
 
@@ -469,6 +529,8 @@ function startActionGas() {
 
   const lever = scene.getObjectByName("Lever", true);
   lever.rotation.z = Math.PI * 0.02;
+  const wheel1 = scene.getObjectByName("Cylinder011", true);
+  wheel1.rotation.y_ *= 10;
 
   once(window, ["mouseup", "touchend"], () => {
     stop();
@@ -478,8 +540,20 @@ function startActionGas() {
   });
 }
 
+function finishActionFlame() {
+  if (!SOUND.flame.inAction) {
+    return;
+  }
+
+  SOUND.flame.inAction = false;
+  playSound(SOUND.gasStop);
+  const lever = scene.getObjectByName("Lever", true);
+  lever.rotation.z = 0;
+}
+
 function startActionFlame() {
   SOUND.flame.inAction = true;
+  SOUND.flame.startedByDragging = false;
 
   playSound(SOUND.lightUp);
   const stop = playSound(SOUND.flame, true);
@@ -489,16 +563,14 @@ function startActionFlame() {
 
   once(window, ["mouseup", "touchend"], () => {
     stop();
-    playSound(SOUND.gasStop);
-    SOUND.flame.inAction = false;
-    lever.rotation.z = 0;
+    finishActionFlame();
   });
 }
 
 ///////////////
 
 window.addEventListener("mousedown", (event) => {
-  INPUT.current = { x: event.clientX, y: event.clientY };
+  INPUT.current = new THREE.Vector2(event.clientX, event.clientY);
   onMouseDown();
 });
 
@@ -506,7 +578,10 @@ window.addEventListener("touchstart", (event) => {
   isTouch = true;
   window.removeEventListener("contextmenu", onContextmenu);
 
-  INPUT.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  INPUT.current = new THREE.Vector2(
+    event.touches[0].clientX,
+    event.touches[0].clientY
+  );
   onMouseDown();
 });
 
@@ -536,12 +611,15 @@ function onMouseDown() {
 }
 
 window.addEventListener("mousemove", (event) => {
-  INPUT.current = { x: event.clientX, y: event.clientY };
+  INPUT.current = new THREE.Vector2(event.clientX, event.clientY);
   onMouseMove();
 });
 
 window.addEventListener("touchmove", (event) => {
-  INPUT.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  INPUT.current = new THREE.Vector2(
+    event.touches[0].clientX,
+    event.touches[0].clientY
+  );
   onMouseMove();
 });
 
@@ -552,6 +630,7 @@ function onMouseMove() {
   INPUT.distance = getDistance(INPUT.current, INPUT.start);
 
   if (
+    transform.enabled &&
     !orbit.enabled &&
     !(
       SOUND.moveShake.playing ||
@@ -578,16 +657,39 @@ function onMouseMove() {
     }
   }
 
+  const intersects = raycast(false);
   if (!isTouch) {
-    const intersects = raycast();
     // Over the object
     INPUT.over = intersects.some((i) => i.object.castShadow);
+  }
+
+  if (INPUT.isDown) {
+    if (intersects.length > 0 && intersects[0].object.name === "LeverHandle") {
+      if (
+        SOUND.lightUp.inAction &&
+        !SOUND.flame.inAction &&
+        !SOUND.gasRunning.inAction
+      ) {
+        stopSound(SOUND.wheelRotate);
+        finishActionLightUp(true);
+        startActionFlame();
+        SOUND.flame.startedByDragging = true;
+        // once(window, ["mouseup", "touchend"], () => {
+        //   orbit.enabled = true;
+        //   transform.enabled = true;
+        // });
+      }
+    } else {
+      if (SOUND.flame.inAction && SOUND.flame.startedByDragging) {
+        stopSound(SOUND.flame);
+        finishActionFlame();
+      }
+    }
   }
 }
 
 window.addEventListener("mouseup", (event) => {
-  INPUT.current = { x: event.clientX, y: event.clientY };
-  INPUT.history.push(INPUT.current);
+  INPUT.current = new THREE.Vector2(event.clientX, event.clientY);
   INPUT.isDown = false;
   INPUT.start = null;
 });
